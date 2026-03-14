@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.75rem;
+    /* Pink and white palette for Rosapp */
+    --background: 0.99 0.005 340;
+    --foreground: 0.25 0.02 340;
+    --card: 1 0 0;
+    --card-foreground: 0.25 0.02 340;
+    --popover: 1 0 0;
+    --popover-foreground: 0.25 0.02 340;
+    --primary: 0.65 0.22 340;
+    --primary-foreground: 1 0 0;
+    --secondary: 0.95 0.03 340;
+    --secondary-foreground: 0.25 0.02 340;
+    --muted: 0.96 0.02 340;
+    --muted-foreground: 0.55 0.05 340;
+    --accent: 0.92 0.08 340;
+    --accent-foreground: 0.25 0.02 340;
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
+    --border: 0.9 0.03 340;
+    --input: 0.9 0.03 340;
+    --ring: 0.65 0.22 340;
+    --chart-1: 0.65 0.22 340;
+    --chart-2: 0.75 0.18 320;
+    --chart-3: 0.55 0.25 350;
+    --chart-4: 0.7 0.2 330;
+    --chart-5: 0.6 0.24 345;
+    --sidebar: 0.98 0.01 340;
+    --sidebar-foreground: 0.25 0.02 340;
+    --sidebar-primary: 0.65 0.22 340;
+    --sidebar-primary-foreground: 1 0 0;
+    --sidebar-accent: 0.95 0.03 340;
+    --sidebar-accent-foreground: 0.25 0.02 340;
+    --sidebar-border: 0.9 0.03 340;
+    --sidebar-ring: 0.65 0.22 340;
+    --success: 0.6 0.18 150;
+    --success-foreground: 1 0 0;
+    --warning: 0.75 0.2 80;
+    --warning-foreground: 0.25 0.02 80;
+  }
+
+  .dark {
+    --background: 0.2 0.02 340;
+    --foreground: 0.98 0.01 340;
+    --card: 0.25 0.02 340;
+    --card-foreground: 0.98 0.01 340;
+    --popover: 0.25 0.02 340;
+    --popover-foreground: 0.98 0.01 340;
+    --primary: 0.7 0.22 340;
+    --primary-foreground: 0.98 0.01 340;
+    --secondary: 0.3 0.03 340;
+    --secondary-foreground: 0.98 0.01 340;
+    --muted: 0.3 0.03 340;
+    --muted-foreground: 0.65 0.08 340;
+    --accent: 0.35 0.08 340;
+    --accent-foreground: 0.98 0.01 340;
+    --destructive: 0.6 0.25 27;
+    --destructive-foreground: 0.98 0.01 340;
+    --border: 0.35 0.03 340;
+    --input: 0.35 0.03 340;
+    --ring: 0.7 0.22 340;
+    --chart-1: 0.7 0.22 340;
+    --chart-2: 0.75 0.18 320;
+    --chart-3: 0.6 0.25 350;
+    --chart-4: 0.72 0.2 330;
+    --chart-5: 0.65 0.24 345;
+    --sidebar: 0.25 0.02 340;
+    --sidebar-foreground: 0.98 0.01 340;
+    --sidebar-primary: 0.7 0.22 340;
+    --sidebar-primary-foreground: 0.98 0.01 340;
+    --sidebar-accent: 0.3 0.03 340;
+    --sidebar-accent-foreground: 0.98 0.01 340;
+    --sidebar-border: 0.35 0.03 340;
+    --sidebar-ring: 0.7 0.22 340;
+    --success: 0.65 0.18 150;
+    --success-foreground: 0.98 0.01 340;
+    --warning: 0.75 0.2 80;
+    --warning-foreground: 0.25 0.02 80;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom animations for emergency alert */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 1;
+  }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 2s ease-in-out infinite;
+}
+
+@keyframes emergency-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 oklch(var(--destructive) / 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 20px oklch(var(--destructive) / 0);
+  }
+}
+
+.animate-emergency-pulse {
+  animation: emergency-pulse 2s ease-in-out infinite;
+}
