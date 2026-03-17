@@ -524,7 +524,6 @@ export default function MessagingDashboard() {
                       </Badge>
                     </div>
                   </div>
-                  {isRegularUser && <EmergencyAlertButton />}
                 </div>
 
                 {/* Messages */}
@@ -633,11 +632,6 @@ export default function MessagingDashboard() {
                   <p className="text-muted-foreground">
                     Selecione um contato para começar a conversar
                   </p>
-                  {isRegularUser && (
-                    <div className="mt-6">
-                      <EmergencyAlertButton />
-                    </div>
-                  )}
                 </div>
               </div>
             )}
@@ -659,6 +653,16 @@ export default function MessagingDashboard() {
             </a>
           </p>
         </footer>
+
+        {/* Floating SOS Button — always visible for regular users */}
+        {isRegularUser && (
+          <div
+            className="fixed bottom-20 right-4 z-50"
+            data-ocid="sos.primary_button"
+          >
+            <EmergencyAlertButton floating />
+          </div>
+        )}
       </div>
       <Toaster />
     </ThemeProvider>

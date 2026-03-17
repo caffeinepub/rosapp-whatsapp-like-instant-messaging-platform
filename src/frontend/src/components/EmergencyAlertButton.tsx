@@ -7,49 +7,70 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { AlertTriangle, Loader2, MapPin } from "lucide-react";
+import { AlertTriangle, Loader2, MapPin, MapPinOff } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useEnviarAlerta } from "../hooks/useQueries";
 
-export default function EmergencyAlertButton() {
+interface EmergencyAlertButtonProps {
+  floating?: boolean;
+}
+
+export default function EmergencyAlertButton({
+  floating = false,
+}: EmergencyAlertButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [locationDenied, setLocationDenied] = useState(false);
   const enviarAlerta = useEnviarAlerta();
+
+  const sendAlert = async (lat: number, lng: number) => {
+    await enviarAlerta.mutateAsync({ latitude: lat, longitude: lng });
+  };
 
   const handleEmergencyAlert = async () => {
     setIsGettingLocation(true);
+    setLocationDenied(false);
 
     if (!navigator.geolocation) {
-      toast.error("Geolocalização não suportada pelo navegador");
-      setIsGettingLocation(false);
+      try {
+        await sendAlert(0, 0);
+        toast.success("Alerta de emergência enviado! (sem localização GPS)");
+        setIsOpen(false);
+      } catch {
+        toast.error("Erro ao enviar alerta. Tente novamente.");
+      } finally {
+        setIsGettingLocation(false);
+      }
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         try {
-          await enviarAlerta.mutateAsync({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
+          await sendAlert(position.coords.latitude, position.coords.longitude);
           toast.success("Alerta de emergência enviado com sucesso!");
           setIsOpen(false);
-        } catch (error: any) {
-          toast.error(error.message || "Erro ao enviar alerta");
+        } catch {
+          toast.error("Erro ao enviar alerta. Tente novamente.");
         } finally {
           setIsGettingLocation(false);
         }
       },
-      (error) => {
-        toast.error(`Erro ao obter localização: ${error.message}`);
+      async () => {
+        setLocationDenied(true);
         setIsGettingLocation(false);
+        try {
+          await sendAlert(0, 0);
+          toast.success(
+            "Alerta enviado! Autorize o GPS para incluir localização.",
+          );
+          setIsOpen(false);
+        } catch {
+          toast.error("Erro ao enviar alerta. Tente novamente.");
+        }
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
   };
 
@@ -58,14 +79,27 @@ export default function EmergencyAlertButton() {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button
-          variant="destructive"
-          size="sm"
-          className="animate-pulse-ring shadow-lg"
-        >
-          <AlertTriangle className="mr-2 h-4 w-4" />
-          SOS
-        </Button>
+        {floating ? (
+          <button
+            type="button"
+            className="flex h-16 w-16 flex-col items-center justify-center rounded-full bg-red-600 text-white shadow-[0_0_0_0_rgba(220,38,38,1)] animate-[sos-pulse_2s_infinite] hover:bg-red-700 active:scale-95 transition-transform"
+            aria-label="Botão SOS de emergência"
+          >
+            <AlertTriangle className="h-6 w-6" />
+            <span className="text-[10px] font-bold leading-none mt-0.5">
+              SOS
+            </span>
+          </button>
+        ) : (
+          <Button
+            variant="destructive"
+            size="sm"
+            className="animate-pulse-ring shadow-lg"
+          >
+            <AlertTriangle className="mr-2 h-4 w-4" />
+            SOS
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -74,20 +108,28 @@ export default function EmergencyAlertButton() {
             Alerta de Emergência
           </DialogTitle>
           <DialogDescription>
-            Ao confirmar, sua localização GPS será enviada imediatamente para
-            todos os agentes e administradores.
+            Ao confirmar, um alerta será enviado imediatamente para todos os
+            agentes.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="rounded-lg border border-warning/50 bg-warning/10 p-4">
             <div className="flex items-start gap-3">
-              <MapPin className="h-5 w-5 flex-shrink-0 text-warning" />
+              {locationDenied ? (
+                <MapPinOff className="h-5 w-5 flex-shrink-0 text-warning" />
+              ) : (
+                <MapPin className="h-5 w-5 flex-shrink-0 text-warning" />
+              )}
               <div className="text-sm">
                 <p className="font-medium text-warning">
-                  Sua localização será compartilhada
+                  {locationDenied
+                    ? "Localização não disponível"
+                    : "Sua localização será compartilhada"}
                 </p>
                 <p className="text-xs text-warning/80">
-                  Os agentes receberão suas coordenadas GPS exatas
+                  {locationDenied
+                    ? "O alerta será enviado sem localização GPS"
+                    : "Os agentes receberão suas coordenadas GPS exatas"}
                 </p>
               </div>
             </div>

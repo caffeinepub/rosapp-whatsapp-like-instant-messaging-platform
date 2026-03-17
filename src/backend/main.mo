@@ -101,7 +101,6 @@ actor {
       return true;
     };
 
-    // Check if user is registered and active (agents are registered users)
     switch (usuarios.get(caller)) {
       case (?usuario) {
         usuario.ativo and usuario.role == #user;
@@ -131,7 +130,7 @@ actor {
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
     if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Não autorizado: Você só pode visualizar seu próprio perfil");
+      Runtime.trap("Nao autorizado: Voce so pode visualizar seu proprio perfil");
     };
 
     switch (usuarios.get(user)) {
@@ -149,7 +148,7 @@ actor {
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Não autorizado: Apenas usuários podem salvar perfis");
+      Runtime.trap("Nao autorizado: Apenas usuarios podem salvar perfis");
     };
 
     let usuario : Usuario = {
@@ -162,14 +161,14 @@ actor {
     usuarios.add(caller, usuario);
   };
 
-  // Criar usuário (ADM only)
+  // Criar usuario (ADM only)
   public shared ({ caller }) func criarUsuario(nome : Text, email : Text, role : UserRole) : async () {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Não autorizado: Apenas administradores podem criar usuários");
+      Runtime.trap("Nao autorizado: Apenas administradores podem criar usuarios");
     };
 
     if (usuarios.values().any(func(u) { u.email == email })) {
-      Runtime.trap("Email já cadastrado");
+      Runtime.trap("Email ja cadastrado");
     };
 
     let novoUsuario : Usuario = {
@@ -182,24 +181,29 @@ actor {
     usuarios.add(novoUsuario.id, novoUsuario);
   };
 
-  // Sistema de Alertas de Emergência (Regular users only, not agents or admins)
+  // Sistema de Alertas de Emergencia
+  // Qualquer usuaria autenticada pode enviar alerta, mesmo sem perfil completo no mapa
   public shared ({ caller }) func enviarAlerta(coordenadas : Coordenadas) : async () {
+    // Verifica autenticacao
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Não autorizado: Você deve estar logada para enviar alerta");
+      Runtime.trap("Nao autorizado: Voce deve estar logada para enviar alerta");
     };
 
-    let usuario = switch (usuarios.get(caller)) {
-      case (null) { Runtime.trap("Usuário não encontrado") };
-      case (?u) { u };
+    // Admins nao enviam alertas
+    if (AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Administradores nao podem enviar alertas de emergencia");
     };
 
-    if (not usuario.ativo) {
-      Runtime.trap("Usuário inativo");
-    };
-
-    // Only regular users (not admins) can send alerts per specification
-    if (usuario.role == #admin) {
-      Runtime.trap("Administradores não podem enviar alertas");
+    // Se tiver perfil, verifica se esta ativa
+    switch (usuarios.get(caller)) {
+      case (?usuario) {
+        if (not usuario.ativo) {
+          Runtime.trap("Conta inativa. Entre em contato com um administrador.");
+        };
+      };
+      case (null) {
+        // Usuaria sem perfil completo ainda pode enviar alerta de emergencia
+      };
     };
 
     let novoAlerta : Alerta = {
@@ -213,52 +217,47 @@ actor {
     alertCounter += 1;
   };
 
-  // Obtenção de Alertas Não Resolvidos (Agents and Admins only)
+  // Obtencao de Alertas Nao Resolvidos (Agents and Admins only)
   public query ({ caller }) func obterAlertasNaoResolvidos() : async [Alerta] {
-    // Must be authenticated
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Não autorizado: Você deve estar autenticado");
+      Runtime.trap("Nao autorizado: Voce deve estar autenticado");
     };
 
     if (not isAgentOrAdmin(caller)) {
-      Runtime.trap("Não autorizado: Apenas agentes e administradores podem visualizar alertas");
+      Runtime.trap("Nao autorizado: Apenas agentes e administradores podem visualizar alertas");
     };
 
     let alertasNaoResolvidos = alertas.values().toArray().filter(func(a) { not a.resolvido });
     alertasNaoResolvidos.sort(Alerta.compareByTime);
   };
 
-  // Histórico de alertas (Users see own, Agents/Admins see all)
+  // Historico de alertas
   public query ({ caller }) func obterHistoricoAlertas() : async [Alerta] {
-    // Must be authenticated (user, agent, or admin)
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Não autorizado: Você não tem permissão para visualizar histórico de alertas");
+      Runtime.trap("Nao autorizado: Voce nao tem permissao para visualizar historico de alertas");
     };
 
     let historico = if (isAgentOrAdmin(caller)) {
-      // Agents and admins see all alerts
       alertas.values().toArray();
     } else {
-      // Regular users see only their own alerts
       alertas.values().toArray().filter(func(a) { a.usuarioId == caller });
     };
 
     historico.sort(Alerta.compareByTime);
   };
 
-  // Atualização de Status de Alerta (Agents and Admins only)
+  // Atualizacao de Status de Alerta
   public shared ({ caller }) func marcarAlertaComoResolvido(alertaId : Nat) : async () {
-    // Must be authenticated
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Não autorizado: Você deve estar autenticado");
+      Runtime.trap("Nao autorizado: Voce deve estar autenticado");
     };
 
     if (not isAgentOrAdmin(caller)) {
-      Runtime.trap("Não autorizado: Apenas agentes e administradores podem atualizar o status de alertas");
+      Runtime.trap("Nao autorizado: Apenas agentes e administradores podem atualizar o status de alertas");
     };
 
     let alerta = switch (alertas.get(alertaId)) {
-      case (null) { Runtime.trap("Alerta não encontrado") };
+      case (null) { Runtime.trap("Alerta nao encontrado") };
       case (?a) { a };
     };
 
@@ -273,15 +272,14 @@ actor {
     alertas.add(alertaId, alertaAtualizado);
   };
 
-  // Consulta de coordenadas (Agents and Admins only)
+  // Consulta de coordenadas
   public query ({ caller }) func obterCoordenadasAlertaPorUsuario(usuarioId : Principal) : async [Coordenadas] {
-    // Must be authenticated
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Não autorizado: Você deve estar autenticado");
+      Runtime.trap("Nao autorizado: Voce deve estar autenticado");
     };
 
     if (not isAgentOrAdmin(caller)) {
-      Runtime.trap("Não autorizado: Apenas agentes e administradores podem visualizar coordenadas");
+      Runtime.trap("Nao autorizado: Apenas agentes e administradores podem visualizar coordenadas");
     };
 
     let coordenadas = alertas.values().toArray()
@@ -290,22 +288,22 @@ actor {
     coordenadas;
   };
 
-  // Listar usuários (Admin only)
+  // Listar usuarios (Admin only)
   public query ({ caller }) func listarUsuarios() : async [Usuario] {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Não autorizado: Apenas administradores podem listar usuários");
+      Runtime.trap("Nao autorizado: Apenas administradores podem listar usuarios");
     };
     usuarios.values().toArray();
   };
 
-  // Atualizar usuário (Admin only)
+  // Atualizar usuario (Admin only)
   public shared ({ caller }) func atualizarUsuario(usuarioId : Principal, nome : Text, email : Text, ativo : Bool) : async () {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Não autorizado: Apenas administradores podem atualizar usuários");
+      Runtime.trap("Nao autorizado: Apenas administradores podem atualizar usuarios");
     };
 
     let usuario = switch (usuarios.get(usuarioId)) {
-      case (null) { Runtime.trap("Usuário não encontrado") };
+      case (null) { Runtime.trap("Usuario nao encontrado") };
       case (?u) { u };
     };
 
@@ -320,29 +318,29 @@ actor {
     usuarios.add(usuarioId, usuarioAtualizado);
   };
 
-  // Deletar usuário (Admin only)
+  // Deletar usuario (Admin only)
   public shared ({ caller }) func deletarUsuario(usuarioId : Principal) : async () {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Não autorizado: Apenas administradores podem deletar usuários");
+      Runtime.trap("Nao autorizado: Apenas administradores podem deletar usuarios");
     };
 
     switch (usuarios.get(usuarioId)) {
-      case (null) { Runtime.trap("Usuário não encontrado") };
+      case (null) { Runtime.trap("Usuario nao encontrado") };
       case (?_) { usuarios.remove(usuarioId) };
     };
   };
 
-  // Admin Token Management (Admin only)
+  // Admin Token Management
   public query ({ caller }) func getAdminToken() : async Text {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Não autorizado: Apenas administradores podem acessar o token ADM");
+      Runtime.trap("Nao autorizado: Apenas administradores podem acessar o token ADM");
     };
     adminToken;
   };
 
   public shared ({ caller }) func regenerateAdminToken() : async Text {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Não autorizado: Apenas administradores podem gerar novo token ADM");
+      Runtime.trap("Nao autorizado: Apenas administradores podem gerar novo token ADM");
     };
 
     let randomSeed = Time.now().toText();
@@ -352,11 +350,9 @@ actor {
   };
 
   // Sistema de Mensagens
-
-  // Envia uma mensagem de texto para destinatário (All authenticated users)
   public shared ({ caller }) func enviarMensagem(destinatarioId : Principal, conteudo : Text) : async Nat {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Não autorizado: Você não tem permissão para enviar mensagens");
+      Runtime.trap("Nao autorizado: Voce nao tem permissao para enviar mensagens");
     };
 
     let novaMensagem : Mensagem = {
@@ -371,7 +367,6 @@ actor {
 
     mensagemCounter += 1;
 
-    // Verifica se já existe conversa entre os participantes
     let participantesArray = [caller, destinatarioId];
     let participantesSet = Map.fromArray(participantesArray.map(func(p) { (p, true) }));
 
@@ -423,10 +418,9 @@ actor {
     };
   };
 
-  // Marca mensagem como lida (Only message recipient)
   public shared ({ caller }) func marcarMensagemComoLida(mensagemId : Nat) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Não autorizado: Você não tem permissão para atualizar mensagens");
+      Runtime.trap("Nao autorizado: Voce nao tem permissao para atualizar mensagens");
     };
 
     var mensagemEncontrada : Bool = false;
@@ -442,13 +436,13 @@ actor {
     };
 
     if (not mensagemEncontrada) {
-      Runtime.trap("Mensagem não encontrada ou você não é destinatário");
+      Runtime.trap("Mensagem nao encontrada ou voce nao e destinatario");
     };
 
     switch (conversaId) {
       case (?cid) {
         let conversa = switch (conversas.get(cid)) {
-          case (null) { Runtime.trap("Conversa não encontrada") };
+          case (null) { Runtime.trap("Conversa nao encontrada") };
           case (?c) { c };
         };
 
@@ -489,23 +483,21 @@ actor {
         conversas.add(conversa.id, conversaAtualizada);
       };
       case (null) {
-        Runtime.trap("Conversa não encontrada para a mensagem");
+        Runtime.trap("Conversa nao encontrada para a mensagem");
       };
     };
   };
 
-  // Lista contatos da plataforma (All authenticated users: users, agents, admins)
   public query ({ caller }) func listarContatos() : async [Usuario] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Não autorizado: Você não tem permissão para acessar lista de contatos");
+      Runtime.trap("Nao autorizado: Voce nao tem permissao para acessar lista de contatos");
     };
     usuarios.values().toArray();
   };
 
-  // Obtém conversas do usuário (All authenticated users)
   public query ({ caller }) func obterConversas() : async [Conversa] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Não autorizado: Você não tem permissão para acessar conversas");
+      Runtime.trap("Nao autorizado: Voce nao tem permissao para acessar conversas");
     };
 
     let conversasUsuario = conversas.values().toArray().filter(
@@ -515,19 +507,18 @@ actor {
     conversasUsuario.sort(Conversa.compareByTime);
   };
 
-  // Obtém mensagens de uma conversa específica (Only conversation participants)
   public query ({ caller }) func obterMensagens(conversaId : Nat, offset : Nat, limit : Nat) : async [Mensagem] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Não autorizado: Você não tem permissão para acessar mensagens");
+      Runtime.trap("Nao autorizado: Voce nao tem permissao para acessar mensagens");
     };
 
     let conversa = switch (conversas.get(conversaId)) {
-      case (null) { Runtime.trap("Conversa não encontrada") };
+      case (null) { Runtime.trap("Conversa nao encontrada") };
       case (?c) { c };
     };
 
     if (not conversa.participantes.any(func(p) { p == caller })) {
-      Runtime.trap("Você não é participante desta conversa");
+      Runtime.trap("Voce nao e participante desta conversa");
     };
 
     let mensagens = conversa.mensagens.sort(Mensagem.compareByTime);
